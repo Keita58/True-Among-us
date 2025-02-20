@@ -6,25 +6,25 @@ namespace m17
     public class PlayerBehaviour : NetworkBehaviour
     {
         //Variable senzilla, per defecte el client no la pot updatejar
-        //recordem que aquestes variables només poden ser de DATA
-        //(a no ser que us feu la vostra propia adaptació)
+        //recordem que aquestes variables nomï¿½s poden ser de DATA
+        //(a no ser que us feu la vostra propia adaptaciï¿½)
         NetworkVariable<float> m_Speed = new NetworkVariable<float>(1);
 
-        Rigidbody2D m_Rigidbody;
+        Rigidbody m_Rigidbody;
 
-        // No es recomana fer servir perquè estem en el món de la xarxa
-        // però podem per initialitzar components i variables per a totes les instàncies
+        // No es recomana fer servir perquï¿½ estem en el mï¿½n de la xarxa
+        // perï¿½ podem per initialitzar components i variables per a totes les instï¿½ncies
         void Awake()
         {
-            m_Rigidbody = GetComponent<Rigidbody2D>();
+            m_Rigidbody = GetComponent<Rigidbody>();
         }
 
-        // Això sí que seria el nou awake
+        // Aixï¿½ sï¿½ que seria el nou awake
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
 
-            //Aquest awake només per a qui li pertany, perquè tocarem variables on només
+            //Aquest awake nomï¿½s per a qui li pertany, perquï¿½ tocarem variables on nomï¿½s
             //a nosaltres ens interessa llegir el seu valor
             if (!IsOwner)
                 return;
@@ -32,7 +32,7 @@ namespace m17
             //Si no la podem updatejar, com ho fem aleshores?
             //Li demanem al servidor que ho faci via un RPC
             //Per a mostrar el resultat al nostre client, utilitzarem
-            //els callback de modificació
+            //els callback de modificaciï¿½
             m_Speed.OnValueChanged += CallbackModificacio;
         }
 
@@ -45,27 +45,27 @@ namespace m17
         //Sempre tindran aquest format amb oldValue i newValue
         private void CallbackModificacio(float oldValue, float newValue)
         {
-            Debug.Log($"{OwnerClientId} => M'han modificat la velocitat i ara és {newValue} en comptes de {oldValue}");
+            Debug.Log($"{OwnerClientId} => M'han modificat la velocitat i ara ï¿½s {newValue} en comptes de {oldValue}");
         }
 
         void Update()
         {
-            //Aquest update només per a qui li pertany
+            //Aquest update nomï¿½s per a qui li pertany
             if (!IsOwner)
                 return;
 
             //RPC a servidor
-            //Demanem al servidor que modifiqui la variable. Perquè nosaltres no en som els propietaris
+            //Demanem al servidor que modifiqui la variable. Perquï¿½ nosaltres no en som els propietaris
             if (Input.GetKeyDown(KeyCode.Space))
                 ChangeSpeedRpc(Random.Range(1f, 5f), NetworkObjectId);
 
             //RPC a clients
             //Com a servidor, enviem un missatge als nostres clients.
-            //Si es vol, es pot passar com a paràmetre els ClientRpcParams, del qual al seu send
+            //Si es vol, es pot passar com a parï¿½metre els ClientRpcParams, del qual al seu send
             //es poden posar les ID de client que volem que rebin el missatge.
-            //Alerta, aquest codi només el pot invocar el servidor i farà que s'executi a tots els clients
+            //Alerta, aquest codi nomï¿½s el pot invocar el servidor i farï¿½ que s'executi a tots els clients
             if (Input.GetKeyDown(KeyCode.M))
-                SendClientMessageClientRpc("Això és un missatge pels clients");
+                SendClientMessageClientRpc("Aixï¿½ ï¿½s un missatge pels clients");
 
             //moviment a deltaTime
             Vector3 movement = Vector3.zero;
@@ -79,11 +79,11 @@ namespace m17
             if (Input.GetKey(KeyCode.D))
                 movement += Vector3.right;
 
-            //Qui farà els moviments serà el servidor, alleugerim i només canvis quan hi hagi input
+            //Qui farï¿½ els moviments serï¿½ el servidor, alleugerim i nomï¿½s canvis quan hi hagi input
             if (movement != Vector3.zero)
                 MoveCharacterRpc(transform.position + movement.normalized * m_Speed.Value * Time.deltaTime);
 
-            //moviment a física
+            //moviment a fï¿½sica
             movement = Vector3.zero;
 
             if (Input.GetKey(KeyCode.I))
@@ -95,23 +95,23 @@ namespace m17
             if (Input.GetKey(KeyCode.L))
                 movement += Vector3.right;
 
-            //Qui farà els moviments serà el servidor, alleugerim i només canvis quan hi hagi input
+            //Qui farï¿½ els moviments serï¿½ el servidor, alleugerim i nomï¿½s canvis quan hi hagi input
             MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value);
 
         }
 
-        //De nou, només data i tipus base com a paràmetres.
-        //hem afegit el segon paràmetre per a saber qui ens dóna la comanda (no es necessari per a aquest exemple, però potser us és útil)
+        //De nou, nomï¿½s data i tipus base com a parï¿½metres.
+        //hem afegit el segon parï¿½metre per a saber qui ens dï¿½na la comanda (no es necessari per a aquest exemple, perï¿½ potser us ï¿½s ï¿½til)
         [Rpc(SendTo.Server)]
         private void ChangeSpeedRpc(float speed, ulong sourceNetworkObjectId)
         {
-            //Ens assegurem com a servidor que la velocitat que ens demanen és vàlida (no negativa en aquest cas)
+            //Ens assegurem com a servidor que la velocitat que ens demanen ï¿½s vï¿½lida (no negativa en aquest cas)
             m_Speed.Value = Mathf.Abs(speed);
             Debug.Log($"{OwnerClientId} => El client {sourceNetworkObjectId} vol una nova velocitat {m_Speed.Value}");
 
-            //Aquesta resposta només la rebrà el client amb la id inicial
-            //Client RPC target a només les ID indicades
-            SendClientMessageClientRpc("Això és un missatge pel client 1" + sourceNetworkObjectId,
+            //Aquesta resposta nomï¿½s la rebrï¿½ el client amb la id inicial
+            //Client RPC target a nomï¿½s les ID indicades
+            SendClientMessageClientRpc("Aixï¿½ ï¿½s un missatge pel client 1" + sourceNetworkObjectId,
                         new ClientRpcParams
                         {
                             Send = new ClientRpcSendParams
@@ -122,35 +122,35 @@ namespace m17
                     );
         }
 
-        //Com veiem, controlar el moviment per servidor és impracticable si hem de treballar amb deltaTime
+        //Com veiem, controlar el moviment per servidor ï¿½s impracticable si hem de treballar amb deltaTime
         //ja que no podem pretendre que la velocitat d'un update es propagui per la xarxa, on sempre tindrem
         //un enrederiment.
         //En aquest cas tenim dues opcions:
         //  A) Podem dir-li als clients que puguin modificar les seves transform.
-        //      És una solució, però estem donant autoritat al client i això en xarxa no és recomanable.
+        //      ï¿½s una soluciï¿½, perï¿½ estem donant autoritat al client i aixï¿½ en xarxa no ï¿½s recomanable.
         //
-        //  B) Adéu deltaTime i treballem per físiques amb valors a la velocitat o acceleracions
-        //      els càlculs els seguiria fent el servidor via rpc (caldria el component NetworkRigidbody/2d)
-        //      seguirem tenint delay, però serà més acceptable.
+        //  B) Adï¿½u deltaTime i treballem per fï¿½siques amb valors a la velocitat o acceleracions
+        //      els cï¿½lculs els seguiria fent el servidor via rpc (caldria el component NetworkRigidbody/2d)
+        //      seguirem tenint delay, perï¿½ serï¿½ mï¿½s acceptable.
         //      Nota: Quan afegim el NetworkRigidbody, aquest passa a ser kinematic a no ser que estigui al servidor
-        //          caldria aleshores gestionar totes les col·lisions i d'altre al servidor.
+        //          caldria aleshores gestionar totes les colï¿½lisions i d'altre al servidor.
         [Rpc(SendTo.Server)]
         private void MoveCharacterRpc(Vector3 newPosition)
         {
             transform.position = newPosition;
         }
 
-        //Això seria el moviment a física
+        //Aixï¿½ seria el moviment a fï¿½sica
         [Rpc(SendTo.Server)]
         private void MoveCharacterPhysicsServerRpc(Vector3 velocity)
         {
-            m_Rigidbody.velocity = velocity;
+            m_Rigidbody.linearVelocity = velocity;
         }
 
-        //Funció que només serà executada als clients
-        // Noteu que aquí es fa servir una nomenclatura diferent [ClientRpc] en comptes de [Rpc(SendTo.ClientsAndHost)].
-        // Això és degut al fet que estem afegint els ClientRpcParams (per a enviar només a alguns clients o a tothom).
-        // Aquest tipus d'ús d'arguments només es pot fer amb [ClientRpc]. En qualsevol altre cas, utilitzeu la sintaxi
+        //Funciï¿½ que nomï¿½s serï¿½ executada als clients
+        // Noteu que aquï¿½ es fa servir una nomenclatura diferent [ClientRpc] en comptes de [Rpc(SendTo.ClientsAndHost)].
+        // Aixï¿½ ï¿½s degut al fet que estem afegint els ClientRpcParams (per a enviar nomï¿½s a alguns clients o a tothom).
+        // Aquest tipus d'ï¿½s d'arguments nomï¿½s es pot fer amb [ClientRpc]. En qualsevol altre cas, utilitzeu la sintaxi
         // que pertocaria [Rpc(SendTo.ClientsAndHost)].
         [ClientRpc]
         private void SendClientMessageClientRpc(string message, ClientRpcParams clientRpcParams = default)
