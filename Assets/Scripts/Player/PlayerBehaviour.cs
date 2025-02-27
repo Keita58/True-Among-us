@@ -67,32 +67,16 @@ namespace m17
             if (Input.GetKeyDown(KeyCode.M))
                 SendClientMessageClientRpc("Aix� �s un missatge pels clients");
 
-            //moviment a deltaTime
+            //moviment a f�sica
             Vector3 movement = Vector3.zero;
 
             if (Input.GetKey(KeyCode.W))
-                movement += Vector3.up;
+                movement += Vector3.forward;
             if (Input.GetKey(KeyCode.S))
-                movement -= Vector3.up;
+                movement -= Vector3.forward;
             if (Input.GetKey(KeyCode.A))
                 movement -= Vector3.right;
             if (Input.GetKey(KeyCode.D))
-                movement += Vector3.right;
-
-            //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input
-            if (movement != Vector3.zero)
-                MoveCharacterRpc(transform.position + movement.normalized * m_Speed.Value * Time.deltaTime);
-
-            //moviment a f�sica
-            movement = Vector3.zero;
-
-            if (Input.GetKey(KeyCode.I))
-                movement += Vector3.up;
-            if (Input.GetKey(KeyCode.K))
-                movement -= Vector3.up;
-            if (Input.GetKey(KeyCode.J))
-                movement -= Vector3.right;
-            if (Input.GetKey(KeyCode.L))
                 movement += Vector3.right;
 
             //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input

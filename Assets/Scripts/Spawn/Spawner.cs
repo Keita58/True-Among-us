@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class Spawner : NetworkBehaviour
 {
@@ -14,6 +15,8 @@ public class Spawner : NetworkBehaviour
 
         if (!IsOwner)
             return;
+
+        SpawnRpc();
     }
 
     public void Update()
@@ -26,16 +29,19 @@ public class Spawner : NetworkBehaviour
         //ownership
         if (Input.GetKeyDown(KeyCode.G))
             SpawnRpc();
+
+        Debug.Log(SceneManager.GetActiveScene().name);
     }
 
     [Rpc(SendTo.Server)]
     private void SpawnRpc()
     {
         Debug.Log("Spawning on server");
+        Debug.Log(SceneManager.GetActiveScene().name);
 
         //Aix crea l'objecte (com ja haurieu de saber, estem a UF4, cal guardar una referncia a l'objecte instanciat)
         GameObject cat = Instantiate(_Jugador);
-        cat.transform.position = transform.position + new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), 0) * Random.Range(0f, 2f);
+        cat.transform.position = new Vector3(0, 1, 0);
         //Aix instancia l'objecte per la xarxa, i d'aquesta forma apareixer tamb als altres clients connectats.
         cat.GetComponent<NetworkObject>().Spawn();
         //cat.GetComponent<GeroColorController>().ColorChangeRpc(color);
