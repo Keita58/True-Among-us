@@ -128,6 +128,7 @@ namespace m17
         [Rpc(SendTo.Server)]
         private void MoveCharacterPhysicsServerRpc(Vector3 velocity)
         {
+            Debug.Log($"Hola {NetworkObjectId}");
             m_Rigidbody.linearVelocity = velocity;
         }
 
