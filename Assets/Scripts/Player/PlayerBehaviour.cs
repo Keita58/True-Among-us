@@ -1,6 +1,7 @@
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace m17
 {
@@ -18,6 +19,8 @@ namespace m17
         void Awake()
         {
             m_Rigidbody = GetComponent<Rigidbody>();
+            LobbyManager.Instance.SetPlayer(this.gameObject);
+            //m_Rigidbody.isKinematic = true;
         }
 
         // Aix� s� que seria el nou awake
@@ -27,8 +30,10 @@ namespace m17
 
             //Aquest awake nom�s per a qui li pertany, perqu� tocarem variables on nom�s
             //a nosaltres ens interessa llegir el seu valor
-            if (!IsOwner)
+            if (!IsOwner || !IsClient)
                 return;
+            
+            this.GetComponentInChildren<Camera>().enabled = true;
 
             //Si no la podem updatejar, com ho fem aleshores?
             //Li demanem al servidor que ho faci via un RPC
@@ -40,6 +45,7 @@ namespace m17
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
+            Destroy(this.gameObject);
             m_Speed.OnValueChanged -= CallbackModificacio;
         }
 
@@ -147,7 +153,7 @@ namespace m17
         [Rpc(SendTo.ClientsAndHost)]
         public void CanviNomRpc(string nom)
         {
-            GetComponentInChildren<TextMeshProUGUI>().text = nom;
+            GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nom;
         }
     }
 }
