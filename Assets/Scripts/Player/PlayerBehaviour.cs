@@ -1,3 +1,4 @@
+using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -51,7 +52,7 @@ namespace m17
         void Update()
         {
             //Aquest update nom�s per a qui li pertany
-            if (!IsOwner)
+            if (!IsOwner || !IsClient)
                 return;
 
             //RPC a servidor
@@ -141,6 +142,12 @@ namespace m17
         private void SendClientMessageClientRpc(string message, ClientRpcParams clientRpcParams = default)
         {
             Debug.Log($"El servidor ha enviat un missatge al client {OwnerClientId} => {message}");
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void CanviNomRpc(string nom)
+        {
+            GetComponentInChildren<TextMeshProUGUI>().text = nom;
         }
     }
 }
