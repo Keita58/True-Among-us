@@ -19,7 +19,6 @@ namespace m17
         void Awake()
         {
             m_Rigidbody = GetComponent<Rigidbody>();
-            LobbyManager.Instance.SetPlayer(this.gameObject);
             //m_Rigidbody.isKinematic = true;
         }
 
@@ -33,7 +32,9 @@ namespace m17
             if (!IsOwner || !IsClient)
                 return;
             
-            this.GetComponentInChildren<Camera>().enabled = true;
+            LobbyManager.Instance.SetPlayer(this.gameObject);
+
+
 
             //Si no la podem updatejar, com ho fem aleshores?
             //Li demanem al servidor que ho faci via un RPC
@@ -45,7 +46,6 @@ namespace m17
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
-            Destroy(this.gameObject);
             m_Speed.OnValueChanged -= CallbackModificacio;
         }
 

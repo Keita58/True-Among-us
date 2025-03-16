@@ -25,11 +25,15 @@ public class LobbyManager : MonoBehaviour
         _Nom.gameObject.SetActive(false);
         _Desc.gameObject.SetActive(false);
         _Boto.gameObject.SetActive(false);
+
         //player.GetComponent<Rigidbody>().isKinematic = false;
     }
 
     public void SetPlayer(GameObject player)
     {
         this.player = player;
+        this.player.GetComponentInChildren<Camera>().enabled = false;
+        this.player.GetComponentInChildren<Camera>().enabled = true;
+        
     }
 }

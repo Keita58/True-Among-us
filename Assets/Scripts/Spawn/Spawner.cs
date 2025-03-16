@@ -39,8 +39,7 @@ public class Spawner : NetworkBehaviour
 
         //Aix crea l'objecte (com ja haurieu de saber, estem a UF4, cal guardar una referncia a l'objecte instanciat)
         GameObject cat = Instantiate(_Jugador);
-        cat.transform.position = new Vector3(0, 1, 0);
-        cat.GetComponentInChildren<Camera>().enabled = false;
+        cat.transform.position = new Vector3(Random.Range(1, 10), 1, 0);
         //Aix instancia l'objecte per la xarxa, i d'aquesta forma apareixer tamb als altres clients connectats.
         cat.GetComponent<NetworkObject>().Spawn();
     }
