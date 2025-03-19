@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
@@ -16,6 +17,7 @@ namespace m17
 
         Rigidbody m_Rigidbody;
         [SerializeField] GameObject _Camera;
+        NetworkList<Color> colors = new NetworkList<Color>();
 
         // No es recomana fer servir perqu� estem en el m�n de la xarxa
         // per� podem per initialitzar components i variables per a totes les inst�ncies
@@ -155,7 +157,6 @@ namespace m17
         [Rpc(SendTo.Server)]
         private void MoveCharacterPhysicsServerRpc(Vector3 velocity)
         {
-            Debug.Log($"Hola {NetworkObjectId}");
             m_Rigidbody.linearVelocity = velocity;
         }
 
@@ -179,26 +180,33 @@ namespace m17
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        public void ColorRpc(int i)
+        public void CanviColorRpc(Color color)
         {
-            switch (i)
+            GetComponent<MeshRenderer>().material.color= color;
+            AfegirColorLlistServerRpc(color);
+        }
+
+
+        [ServerRpc(RequireOwnership = false)]
+        public void AfegirColorLlistServerRpc(Color color)
+        {
+            if (!colors.Contains(color))
             {
-                case 0:
-                    gameObject.GetComponent<MeshRenderer>().material.color = Color.red;
-                    break;
-                case 1:
-                    gameObject.GetComponent<MeshRenderer>().material.color = Color.yellow;
-                    break;
-                case 2:
-                    gameObject.GetComponent<MeshRenderer>().material.color = Color.green;
-                    break;
-                case 3:
-                    gameObject.GetComponent<MeshRenderer>().material.color = Color.blue;
-                    break;
-                case 4:
-                    gameObject.GetComponent<MeshRenderer>().material.color = Color.black;
-                    break;
+                colors.Add(color);
+                Debug.Log("Añado " + color);
+                Debug.Log(colors.Count);
             }
         }
+
+        public List<Color> llistaColors()
+        {
+            List<Color> aux = new List<Color>();
+            foreach (Color color in colors)
+            {
+                aux.Add(color);
+            }
+            return aux;
+        }
+
     }
 }

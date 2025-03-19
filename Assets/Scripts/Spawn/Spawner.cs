@@ -44,7 +44,6 @@ public class Spawner : NetworkBehaviour
         cat.transform.position = new Vector3(Random.Range(1, 10), 1, 0);
         //Aix instancia l'objecte per la xarxa, i d'aquesta forma apareixer tamb als altres clients connectats.
         cat.GetComponent<NetworkObject>().Spawn();
-        cat.GetComponent<PlayerBehaviour>().ColorRpc(Random.Range(0, 5));
     }
 
 }
