@@ -45,8 +45,6 @@ namespace m17
             //Per a mostrar el resultat al nostre client, utilitzarem
             //els callback de modificaci�
             m_Speed.OnValueChanged += CallbackModificacio;
-            //nick.OnValueChanged += 
-            //EnviarNomRpc(nick);
         }
 
         public override void OnNetworkDespawn()
@@ -86,16 +84,31 @@ namespace m17
             Vector3 movement = Vector3.zero;
 
             if (Input.GetKey(KeyCode.W))
-                movement += Vector3.forward;
+                movement += transform.forward;
             if (Input.GetKey(KeyCode.S))
-                movement -= Vector3.forward;
+                movement -= transform.forward;
             if (Input.GetKey(KeyCode.A))
-                movement -= Vector3.right;
+                movement -= transform.right;
             if (Input.GetKey(KeyCode.D))
-                movement += Vector3.right;
+                movement += transform.right;
 
             //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input
             MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value);
+            MovimentCameraRpc(Input.mousePosition);
+        }
+
+        [Rpc(SendTo.Server)]
+        private void MovimentCameraRpc(Vector2 lookInput)
+        {
+            Vector2 _LookRotation = Vector2.zero;
+
+            _LookRotation.x += lookInput.x;
+            _LookRotation.y += lookInput.y;
+
+            _LookRotation.y = Mathf.Clamp(_LookRotation.y, -35, 35);
+
+            m_Rigidbody.MoveRotation(Quaternion.Euler(0, _LookRotation.x, 0));
+            _Camera.transform.localRotation = Quaternion.Euler(_LookRotation.y, 0, 0);
         }
 
         //De nou, nom�s data i tipus base com a par�metres.
