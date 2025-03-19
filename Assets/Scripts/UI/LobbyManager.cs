@@ -1,8 +1,6 @@
 ﻿using m17;
 using TMPro;
-using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class LobbyManager : MonoBehaviour
@@ -21,7 +19,8 @@ public class LobbyManager : MonoBehaviour
 
     public void SetNom()
     {
-         player.GetComponent<PlayerBehaviour>().CanviNomRpc(_Nom.text);
+        Debug.Log("lobby");
+        player.GetComponent<PlayerBehaviour>().CanviNomRpc(_Nom.text);
         _Nom.gameObject.SetActive(false);
         _Desc.gameObject.SetActive(false);
         _Boto.gameObject.SetActive(false);
@@ -31,9 +30,6 @@ public class LobbyManager : MonoBehaviour
 
     public void SetPlayer(GameObject player)
     {
-        this.player = player;
-        this.player.GetComponentInChildren<Camera>().enabled = false;
-        this.player.GetComponentInChildren<Camera>().enabled = true;
-        
+        this.player = player;        
     }
 }

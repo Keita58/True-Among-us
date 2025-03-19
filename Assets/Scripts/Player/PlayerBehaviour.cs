@@ -1,7 +1,7 @@
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace m17
 {
@@ -12,14 +12,16 @@ namespace m17
         //(a no ser que us feu la vostra propia adaptaci�)
         NetworkVariable<float> m_Speed = new NetworkVariable<float>(1);
 
+        NetworkVariable<FixedString512Bytes> nick = new NetworkVariable<FixedString512Bytes>();
+
         Rigidbody m_Rigidbody;
+        [SerializeField] GameObject _Camera;
 
         // No es recomana fer servir perqu� estem en el m�n de la xarxa
         // per� podem per initialitzar components i variables per a totes les inst�ncies
         void Awake()
         {
             m_Rigidbody = GetComponent<Rigidbody>();
-            //m_Rigidbody.isKinematic = true;
         }
 
         // Aix� s� que seria el nou awake
@@ -31,16 +33,20 @@ namespace m17
             //a nosaltres ens interessa llegir el seu valor
             if (!IsOwner || !IsClient)
                 return;
-            
+
+
             LobbyManager.Instance.SetPlayer(this.gameObject);
 
-
+            Camera.main.transform.position = _Camera.transform.position;
+            Camera.main.transform.parent = this.transform;
 
             //Si no la podem updatejar, com ho fem aleshores?
             //Li demanem al servidor que ho faci via un RPC
             //Per a mostrar el resultat al nostre client, utilitzarem
             //els callback de modificaci�
             m_Speed.OnValueChanged += CallbackModificacio;
+            //nick.OnValueChanged += 
+            //EnviarNomRpc(nick);
         }
 
         public override void OnNetworkDespawn()
@@ -59,7 +65,9 @@ namespace m17
         {
             //Aquest update nom�s per a qui li pertany
             if (!IsOwner || !IsClient)
+            {
                 return;
+            }
 
             //RPC a servidor
             //Demanem al servidor que modifiqui la variable. Perqu� nosaltres no en som els propietaris
@@ -88,7 +96,6 @@ namespace m17
 
             //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input
             MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value);
-
         }
 
         //De nou, nom�s data i tipus base com a par�metres.
@@ -150,10 +157,35 @@ namespace m17
             Debug.Log($"El servidor ha enviat un missatge al client {OwnerClientId} => {message}");
         }
 
-        [Rpc(SendTo.ClientsAndHost)]
+        [Rpc(SendTo.Server)]
         public void CanviNomRpc(string nom)
         {
+            Debug.Log("entro");
             GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nom;
+            nick.Value = nom;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void ColorRpc(int i)
+        {
+            switch (i)
+            {
+                case 0:
+                    gameObject.GetComponent<MeshRenderer>().material.color = Color.red;
+                    break;
+                case 1:
+                    gameObject.GetComponent<MeshRenderer>().material.color = Color.yellow;
+                    break;
+                case 2:
+                    gameObject.GetComponent<MeshRenderer>().material.color = Color.green;
+                    break;
+                case 3:
+                    gameObject.GetComponent<MeshRenderer>().material.color = Color.blue;
+                    break;
+                case 4:
+                    gameObject.GetComponent<MeshRenderer>().material.color = Color.black;
+                    break;
+            }
         }
     }
 }
