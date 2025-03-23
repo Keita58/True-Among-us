@@ -1,8 +1,10 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace m17
 {
@@ -19,11 +21,36 @@ namespace m17
         [SerializeField] GameObject _Camera;
         NetworkList<Color> colors = new NetworkList<Color>();
 
+        //per a saber quins clients estàn preparats.
+        NetworkList<ulong> m_PlayersReady = new NetworkList<ulong>();
+
         // No es recomana fer servir perqu� estem en el m�n de la xarxa
         // per� podem per initialitzar components i variables per a totes les inst�ncies
         void Awake()
         {
             m_Rigidbody = GetComponent<Rigidbody>();
+            SceneManager.activeSceneChanged += OnSceneChanged;
+        }
+
+
+        void OnSceneChanged(Scene oldScene, Scene newScene)
+        {
+            if (newScene.name == "Mapa" && IsOwner)
+            {
+                RequestSpawnPositionRpc();
+            }
+        }
+
+        [Rpc(SendTo.Server)]
+        private void RequestSpawnPositionRpc()
+        {
+            SetSpawnPositionRpc(new Vector3(-85, 0, -62));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SetSpawnPositionRpc(Vector3 position)
+        {
+            transform.position = position;
         }
 
         // Aix� s� que seria el nou awake
@@ -47,6 +74,26 @@ namespace m17
             //Per a mostrar el resultat al nostre client, utilitzarem
             //els callback de modificaci�
             m_Speed.OnValueChanged += CallbackModificacio;
+
+            colors.OnListChanged += (NetworkListEvent<Color> changeEvent) =>
+            {
+                List<Color> aux = new List<Color>();
+                foreach (Color color in colors)
+                {
+                    aux.Add(color);
+                }
+                LobbyManager.Instance.desactivarColorsJaEscollits(aux);
+            };
+
+            m_PlayersReady.OnListChanged += (NetworkListEvent<ulong> changeEvent) =>
+            {
+                ulong[] players = new ulong[m_PlayersReady.Count];
+                for (int i = 0; i<m_PlayersReady.Count; i++)
+                {
+                    players[i]=m_PlayersReady[i];
+                }
+                ComprovarCanviEscena(players);
+            };
         }
 
         public override void OnNetworkDespawn()
@@ -97,6 +144,17 @@ namespace m17
             //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input
             MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value);
             MovimentCameraRpc(Input.mousePosition);
+
+            Debug.Log("Clients: " + NetworkManager.Singleton.ConnectedClientsList.Count);
+            foreach (ulong client in m_PlayersReady)
+            {
+                Debug.Log("ClientReady:"+client);
+            }
+            Debug.Log("Clients ready: " + m_PlayersReady.Count);
+
+            if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("")){
+                LobbyManager.Instance.ActivarBotonReady();
+            }
         }
 
         [Rpc(SendTo.Server)]
@@ -171,42 +229,88 @@ namespace m17
             Debug.Log($"El servidor ha enviat un missatge al client {OwnerClientId} => {message}");
         }
 
-        [Rpc(SendTo.Server)]
+        [Rpc(SendTo.ClientsAndHost)]
         public void CanviNomRpc(string nom)
         {
             Debug.Log("entro");
             GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nom;
-            nick.Value = nom;
+            //nick.Value = nom;
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         public void CanviColorRpc(Color color)
         {
-            GetComponent<MeshRenderer>().material.color= color;
-            AfegirColorLlistServerRpc(color);
+            GetComponent<MeshRenderer>().material.color = color;
+            AfegirColorLlist(color);
+            List<Color> aux = new List<Color>();
+            foreach (Color c in colors)
+            {
+                aux.Add(c);
+            }
+            LobbyManager.Instance.desactivarColorsJaEscollits(aux);
         }
 
 
-        [ServerRpc(RequireOwnership = false)]
-        public void AfegirColorLlistServerRpc(Color color)
+        public void AfegirColorLlist(Color color)
         {
             if (!colors.Contains(color))
             {
                 colors.Add(color);
-                Debug.Log("Añado " + color);
-                Debug.Log(colors.Count);
             }
         }
 
-        public List<Color> llistaColors()
+        [Rpc(SendTo.Server)]
+        public void AfegirReadyPlayerRpc()
         {
-            List<Color> aux = new List<Color>();
-            foreach (Color color in colors)
-            {
-                aux.Add(color);
-            }
-            return aux;
+            this.m_PlayersReady.Add(OwnerClientId);
+           
         }
 
+        [Rpc(SendTo.ClientsAndHost)]
+        public void readyRpc()
+        {
+            AfegirReadyPlayerRpc();
+            ulong[] players = new ulong[m_PlayersReady.Count];
+            for (int i = 0; i < m_PlayersReady.Count; i++)
+            {
+                players[i] = m_PlayersReady[i];
+            }
+            ComprovarCanviEscena(players);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void notReadyRpc()
+        {
+            TreureReadyPlayerRpc();
+            ulong[] players = new ulong[m_PlayersReady.Count];
+            for (int i = 0; i < m_PlayersReady.Count; i++)
+            {
+                players[i] = m_PlayersReady[i];
+            }
+            ComprovarCanviEscena(players);
+        }
+
+        [Rpc(SendTo.Server)]
+        public void TreureReadyPlayerRpc()
+        {
+            this.m_PlayersReady.Add(OwnerClientId);
+        }
+
+        public IEnumerator ChangeSceneGame()
+        {
+            yield return new WaitForSeconds(2f);
+            NetworkManager.Singleton.SceneManager.LoadScene("Mapa", UnityEngine.SceneManagement.LoadSceneMode.Single);
+
+        }
+
+        private void ComprovarCanviEscena(ulong[] players)
+        {
+            if (!IsServer) return;
+            Debug.Log(NetworkManager.Singleton.ConnectedClientsList.Count);
+            if (NetworkManager.Singleton.ConnectedClientsList.Count >= 2 && NetworkManager.Singleton.ConnectedClientsList.Count == players.Length)
+            {
+                StartCoroutine(ChangeSceneGame());
+            }
+        }
     }
 }

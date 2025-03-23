@@ -13,8 +13,7 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] Button _Boto;
     private GameObject player;
     [SerializeField] GameObject ButtonsRoot;
-    private List<Color> colors;
-
+    [SerializeField] GameObject ButtonsReadyRoot;
 
     public static LobbyManager Instance { get; private set; }
     private void Awake()
@@ -38,12 +37,6 @@ public class LobbyManager : MonoBehaviour
     public void SetPlayer(GameObject player)
     {
         this.player = player;
-        colors = this.player.GetComponent<PlayerBehaviour>().llistaColors();
-        if (colors.Count > 0)
-        {
-            Debug.Log("Entro colors");
-            desactivarColorsJaEscollits();
-        }
     }
 
     public void setColor(Color color)
@@ -60,7 +53,7 @@ public class LobbyManager : MonoBehaviour
         }
 
     }   
-    public void desactivarColorsJaEscollits()
+    public void desactivarColorsJaEscollits(List <Color> colors)
     {
         for (int i = 0; i < ButtonsRoot.transform.childCount; i++)
         {
@@ -73,6 +66,24 @@ public class LobbyManager : MonoBehaviour
 
             }
         }
+
+    }
+    public void ActivarBotonReady()
+    {
+        for (int i = 0; i < ButtonsReadyRoot.transform.childCount; i++)
+        {
+            ButtonsReadyRoot.transform.GetChild(i).GetComponent<Button>().interactable=true;
+        }
+    }
+
+    public void afegirLlistaReady()
+    {
+        player.GetComponent<PlayerBehaviour>().readyRpc();
+
+    } 
+    public void treureLlistaReady()
+    {
+        player.GetComponent<PlayerBehaviour>().notReadyRpc();
 
     }
 }
