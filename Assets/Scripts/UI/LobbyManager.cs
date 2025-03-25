@@ -26,7 +26,7 @@ public class LobbyManager : MonoBehaviour
     public void SetNom()
     {
         Debug.Log("lobby");
-        player.GetComponent<PlayerBehaviour>().CanviNomRpc(_Nom.text);
+        player.GetComponent<PlayerBehaviour>().RequestNameChangeRpc(_Nom.text);
         _Nom.gameObject.SetActive(false);
         _Desc.gameObject.SetActive(false);
         _Boto.gameObject.SetActive(false);
@@ -41,7 +41,7 @@ public class LobbyManager : MonoBehaviour
 
     public void setColor(Color color)
     {
-        player.GetComponent<PlayerBehaviour>().CanviColorRpc(color);
+        player.GetComponent<PlayerBehaviour>().AfegirColorLlistRpc(color);
         desactivarTotsColors();
     }
    
@@ -78,12 +78,12 @@ public class LobbyManager : MonoBehaviour
 
     public void afegirLlistaReady()
     {
-        player.GetComponent<PlayerBehaviour>().readyRpc();
+        player.GetComponent<PlayerBehaviour>().AfegirReadyPlayerRpc();
 
     } 
     public void treureLlistaReady()
     {
-        player.GetComponent<PlayerBehaviour>().notReadyRpc();
+        player.GetComponent<PlayerBehaviour>().TreureReadyPlayerRpc();
 
     }
 }

@@ -85,6 +85,11 @@ namespace m17
                 LobbyManager.Instance.desactivarColorsJaEscollits(aux);
             };
 
+            nick.OnValueChanged += (oldName, newName) =>
+            {
+                GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = newName.ToString();
+            };
+
             m_PlayersReady.OnListChanged += (NetworkListEvent<ulong> changeEvent) =>
             {
                 ulong[] players = new ulong[m_PlayersReady.Count];
@@ -94,6 +99,13 @@ namespace m17
                 }
                 ComprovarCanviEscena(players);
             };
+            
+            GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nick.Value.ToString();
+        }
+
+        private void onNameChange(FixedString512Bytes previousValue, FixedString512Bytes newValue)
+        {
+            throw new System.NotImplementedException();
         }
 
         public override void OnNetworkDespawn()
@@ -152,7 +164,7 @@ namespace m17
             }
             Debug.Log("Clients ready: " + m_PlayersReady.Count);
 
-            if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("")){
+            if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("") && SceneManager.GetActiveScene().Equals("Lobby")){
                 LobbyManager.Instance.ActivarBotonReady();
             }
         }
@@ -229,19 +241,26 @@ namespace m17
             Debug.Log($"El servidor ha enviat un missatge al client {OwnerClientId} => {message}");
         }
 
+        [Rpc(SendTo.Server)]
+        public void RequestNameChangeRpc(string nom)
+        {
+            nick.Value = nom;
+            CanviNomRpc(nom);
+
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         public void CanviNomRpc(string nom)
         {
             Debug.Log("entro");
             GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nom;
-            //nick.Value = nom;
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         public void CanviColorRpc(Color color)
         {
             GetComponent<MeshRenderer>().material.color = color;
-            AfegirColorLlist(color);
+            AfegirColorLlistRpc(color);
             List<Color> aux = new List<Color>();
             foreach (Color c in colors)
             {
@@ -250,12 +269,13 @@ namespace m17
             LobbyManager.Instance.desactivarColorsJaEscollits(aux);
         }
 
-
-        public void AfegirColorLlist(Color color)
+        [Rpc(SendTo.Server)]
+        public void AfegirColorLlistRpc(Color color)
         {
             if (!colors.Contains(color))
             {
                 colors.Add(color);
+                CanviColorRpc(color);
             }
         }
 
@@ -263,6 +283,7 @@ namespace m17
         public void AfegirReadyPlayerRpc()
         {
             this.m_PlayersReady.Add(OwnerClientId);
+            readyRpc();
            
         }
 
@@ -294,6 +315,7 @@ namespace m17
         public void TreureReadyPlayerRpc()
         {
             this.m_PlayersReady.Add(OwnerClientId);
+            notReadyRpc();
         }
 
         public IEnumerator ChangeSceneGame()
