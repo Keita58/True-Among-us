@@ -13,6 +13,8 @@ namespace m17
         //Variable senzilla, per defecte el client no la pot updatejar
         //recordem que aquestes variables nom�s poden ser de DATA
         //(a no ser que us feu la vostra propia adaptaci�)
+        private static Dictionary<ulong, FixedString512Bytes> playerNames = new(); // Almacena los nombres de todos los jugadores en el servidor
+
         NetworkVariable<float> m_Speed = new NetworkVariable<float>(1);
 
         NetworkVariable<FixedString512Bytes> nick = new NetworkVariable<FixedString512Bytes>();
@@ -101,6 +103,12 @@ namespace m17
             };
             
             GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nick.Value.ToString();
+
+            if (IsServer)
+            {
+                playerNames[OwnerClientId] = nick.Value;
+                NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+            }
         }
 
         private void onNameChange(FixedString512Bytes previousValue, FixedString512Bytes newValue)
@@ -164,7 +172,7 @@ namespace m17
             }
             Debug.Log("Clients ready: " + m_PlayersReady.Count);
 
-            if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("") && SceneManager.GetActiveScene().Equals("Lobby")){
+            if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("") && SceneManager.GetActiveScene().name.Equals("Lobby")){
                 LobbyManager.Instance.ActivarBotonReady();
             }
         }
@@ -241,19 +249,37 @@ namespace m17
             Debug.Log($"El servidor ha enviat un missatge al client {OwnerClientId} => {message}");
         }
 
+        private void OnClientConnected(ulong clientId)
+        {
+            // Enviar el nombre del jugador al nuevo cliente
+            foreach (var entry in playerNames)
+            {
+                UpdateNicknameClientRpc(entry.Key, entry.Value.ToString(), new ClientRpcParams
+                {
+                    Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
+                });
+            }
+        }
+
         [Rpc(SendTo.Server)]
         public void RequestNameChangeRpc(string nom)
         {
             nick.Value = nom;
-            CanviNomRpc(nom);
-
+            playerNames[OwnerClientId] = nom;
+            UpdateNicknameClientRpc(OwnerClientId, nom);
         }
 
-        [Rpc(SendTo.ClientsAndHost)]
-        public void CanviNomRpc(string nom)
+        [ClientRpc]
+        public void UpdateNicknameClientRpc(ulong clientId, string nom, ClientRpcParams rpcParams = default)
         {
-            Debug.Log("entro");
-            GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nom;
+            foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
+            {
+                if (player.OwnerClientId == clientId)
+                {
+                    player.GetComponentInChildren<TextMeshProUGUI>().text = nom.ToString();
+                    break;
+                }
+            }
         }
 
         [Rpc(SendTo.ClientsAndHost)]
