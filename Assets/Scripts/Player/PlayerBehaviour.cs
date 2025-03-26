@@ -32,6 +32,8 @@ namespace m17
         NetworkList<ulong> m_PlayersReady = new NetworkList<ulong>();
         [SerializeField] public Collider[] enemigos { get; private set; }
 
+        Vector2 _LookRotation = Vector2.zero;
+
         // No es recomana fer servir perqu� estem en el m�n de la xarxa
         // per� podem per initialitzar components i variables per a totes les inst�ncies
         void Awake()
@@ -66,6 +68,8 @@ namespace m17
         {
             base.OnNetworkSpawn();
 
+            //Cursor.visible = false;
+
             //Aquest awake nom�s per a qui li pertany, perqu� tocarem variables on nom�s
             //a nosaltres ens interessa llegir el seu valor
             if (!IsOwner || !IsClient)
@@ -75,7 +79,7 @@ namespace m17
             LobbyManager.Instance.SetPlayer(this.gameObject);
 
             Camera.main.transform.position = _Camera.transform.position;
-            Camera.main.transform.parent = this.transform;
+            Camera.main.transform.parent = _Camera.transform;
 
             //Si no la podem updatejar, com ho fem aleshores?
             //Li demanem al servidor que ho faci via un RPC
@@ -139,7 +143,7 @@ namespace m17
         void Update()
         {
             //Aquest update nom�s per a qui li pertany
-            if (!IsOwner || !IsClient)
+            if (!IsOwner)
             {
                 return;
             }
@@ -170,8 +174,8 @@ namespace m17
                 movement += transform.right;
 
             //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input
-            MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value);
-            MovimentCameraRpc(Input.mousePosition);
+            MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value, Input.mousePositionDelta);
+            
 
             Debug.Log("Clients: " + NetworkManager.Singleton.ConnectedClientsList.Count);
             foreach (ulong client in m_PlayersReady)
@@ -185,18 +189,19 @@ namespace m17
             }
         }
 
+        //No funciona pel mousePosition!!!
         [Rpc(SendTo.Server)]
         private void MovimentCameraRpc(Vector2 lookInput)
         {
             Vector2 _LookRotation = Vector2.zero;
 
             _LookRotation.x += lookInput.x;
-            _LookRotation.y += lookInput.y;
+            _LookRotation.y += -1 * lookInput.y;
 
-            _LookRotation.y = Mathf.Clamp(_LookRotation.y, -35, 35);
+            _LookRotation.y = Mathf.Clamp(_LookRotation.y, -20, 60);
 
             m_Rigidbody.MoveRotation(Quaternion.Euler(0, _LookRotation.x, 0));
-            _Camera.transform.localRotation = Quaternion.Euler(_LookRotation.y, 0, 0);
+            Debug.Log($"{NetworkBehaviourId} -> " + lookInput);
         }
 
         //De nou, nom�s data i tipus base com a par�metres.
@@ -241,8 +246,13 @@ namespace m17
 
         //Aix� seria el moviment a f�sica
         [Rpc(SendTo.Server)]
-        private void MoveCharacterPhysicsServerRpc(Vector3 velocity)
+        private void MoveCharacterPhysicsServerRpc(Vector3 velocity, Vector2 lookInput)
         {
+            _LookRotation.x += lookInput.x;
+
+            m_Rigidbody.MoveRotation(Quaternion.Euler(0, _LookRotation.x, 0));
+            Debug.Log($"{OwnerClientId} -> " + lookInput);
+
             m_Rigidbody.linearVelocity = velocity;
         }
 
