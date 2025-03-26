@@ -1,9 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.SceneManagement;
 
 namespace m17
@@ -22,9 +24,13 @@ namespace m17
         Rigidbody m_Rigidbody;
         [SerializeField] GameObject _Camera;
         NetworkList<Color> colors = new NetworkList<Color>();
+        NetworkVariable<Color> selfColor= new NetworkVariable<Color>();
+        private static Dictionary<ulong, Color> playerColors = new();
+        bool isKiller=false;
 
         //per a saber quins clients estàn preparats.
         NetworkList<ulong> m_PlayersReady = new NetworkList<ulong>();
+        [SerializeField] public Collider[] enemigos { get; private set; }
 
         Vector2 _LookRotation = Vector2.zero;
 
@@ -108,18 +114,20 @@ namespace m17
             
             GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nick.Value.ToString();
 
+            selfColor.OnValueChanged += (oldColor, newColor) =>
+            {
+                GetComponent<MeshRenderer>().material.color=newColor;
+            };
+            GetComponent<MeshRenderer>().material.color = selfColor.Value;
+
+
             if (IsServer)
             {
                 playerNames[OwnerClientId] = nick.Value;
+                playerColors[OwnerClientId]=selfColor.Value;
                 NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
             }
         }
-
-        private void onNameChange(FixedString512Bytes previousValue, FixedString512Bytes newValue)
-        {
-            throw new System.NotImplementedException();
-        }
-
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
@@ -143,7 +151,7 @@ namespace m17
             //RPC a servidor
             //Demanem al servidor que modifiqui la variable. Perqu� nosaltres no en som els propietaris
             if (Input.GetKeyDown(KeyCode.Space))
-                ChangeSpeedRpc(Random.Range(1f, 5f), NetworkObjectId);
+                ChangeSpeedRpc(UnityEngine.Random.Range(1f, 5f), NetworkObjectId);
 
             //RPC a clients
             //Com a servidor, enviem un missatge als nostres clients.
@@ -269,6 +277,14 @@ namespace m17
                     Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
                 });
             }
+
+            foreach (var entry in playerColors)
+            {
+                UpdatecolorClientRpc(entry.Key, entry.Value, new ClientRpcParams
+                {
+                    Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
+                });
+            }
         }
 
         [Rpc(SendTo.Server)]
@@ -292,10 +308,25 @@ namespace m17
             }
         }
 
+        [ClientRpc]
+        public void UpdatecolorClientRpc(ulong clientId, Color color, ClientRpcParams rpcParams = default)
+        {
+            foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
+            {
+                if (player.OwnerClientId == clientId)
+                {
+                    player.GetComponent<MeshRenderer>().material.color = color;
+                    break;
+                }
+            }
+
+        }
+
+
         [Rpc(SendTo.ClientsAndHost)]
         public void CanviColorRpc(Color color)
         {
-            GetComponent<MeshRenderer>().material.color = color;
+            //GetComponent<MeshRenderer>().material.color = color;
             List<Color> aux = new List<Color>();
             foreach (Color c in colors)
             {
@@ -309,7 +340,9 @@ namespace m17
         {
             if (!colors.Contains(color))
             {
-                colors.Add(color);
+                selfColor.Value = color;
+                playerColors[OwnerClientId] = color;
+                UpdatecolorClientRpc(OwnerClientId, color);
                 CanviColorRpc(color);
             }
         }
@@ -351,20 +384,67 @@ namespace m17
             notReadyRpc();
         }
 
+        [Rpc(SendTo.Server)]
+        private void RandomKillerRpc()
+        {
+            int random = UnityEngine.Random.Range(0, m_PlayersReady.Count);
+            ulong player = m_PlayersReady[random];
+            int index=m_PlayersReady.IndexOf(m_PlayersReady[random]);
+            m_PlayersReady.RemoveAt(index);
+            EscogerKillerRpc(player);
+            detectarEnemigos();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EscogerKillerRpc(ulong id)
+        {
+            if (id == OwnerClientId)
+            {
+                GameManager.Instance.setKiller(this);
+                isKiller = true;
+            }
+        }
+
+
+        private IEnumerator detectarEnemigos()
+        {
+            while (true)
+            {
+                enemigos = Physics.OverlapSphere(this.transform.position, 5.0f);
+                GameManager.Instance.ActivarBotonKill();
+                yield return new WaitForSeconds(2f);
+            }
+        }
+
         public IEnumerator ChangeSceneGame()
         {
             yield return new WaitForSeconds(2f);
             NetworkManager.Singleton.SceneManager.LoadScene("Mapa", UnityEngine.SceneManagement.LoadSceneMode.Single);
+
         }
 
         private void ComprovarCanviEscena(ulong[] players)
         {
-            if (!IsServer) return;
             Debug.Log(NetworkManager.Singleton.ConnectedClientsList.Count);
             if (NetworkManager.Singleton.ConnectedClientsList.Count >= 2 && NetworkManager.Singleton.ConnectedClientsList.Count == players.Length)
             {
                 StartCoroutine(ChangeSceneGame());
             }
+        }
+
+        [Rpc(SendTo.Server)]
+        public void MatarEnemigoRpc(ulong id)
+        {
+            ulong[] players = new ulong[m_PlayersReady.Count];
+            for (int i = 0; i < m_PlayersReady.Count; i++)
+            {
+                if (OwnerClientId == id)
+                {
+                    GameManager.Instance.ActivarTextoMuerte();
+                    break;
+                }
+            }
+
         }
     }
 }
