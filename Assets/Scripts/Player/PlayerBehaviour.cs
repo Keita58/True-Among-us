@@ -316,7 +316,6 @@ namespace m17
         [Rpc(SendTo.ClientsAndHost)]
         public void readyRpc()
         {
-            AfegirReadyPlayerRpc();
             ulong[] players = new ulong[m_PlayersReady.Count];
             for (int i = 0; i < m_PlayersReady.Count; i++)
             {
@@ -328,7 +327,6 @@ namespace m17
         [Rpc(SendTo.ClientsAndHost)]
         public void notReadyRpc()
         {
-            TreureReadyPlayerRpc();
             ulong[] players = new ulong[m_PlayersReady.Count];
             for (int i = 0; i < m_PlayersReady.Count; i++)
             {
@@ -348,7 +346,6 @@ namespace m17
         {
             yield return new WaitForSeconds(2f);
             NetworkManager.Singleton.SceneManager.LoadScene("Mapa", UnityEngine.SceneManagement.LoadSceneMode.Single);
-
         }
 
         private void ComprovarCanviEscena(ulong[] players)
