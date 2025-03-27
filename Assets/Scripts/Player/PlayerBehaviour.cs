@@ -33,6 +33,7 @@ namespace m17
         [SerializeField] public Collider[] enemigos { get; private set; }
 
         Vector2 _LookRotation = Vector2.zero;
+        [SerializeField] LayerMask layerMask;
 
         // No es recomana fer servir perqu� estem en el m�n de la xarxa
         // per� podem per initialitzar components i variables per a totes les inst�ncies
@@ -389,10 +390,11 @@ namespace m17
         {
             int random = UnityEngine.Random.Range(0, m_PlayersReady.Count);
             ulong player = m_PlayersReady[random];
-            int index=m_PlayersReady.IndexOf(m_PlayersReady[random]);
-            m_PlayersReady.RemoveAt(index);
+            //int index=m_PlayersReady.IndexOf(m_PlayersReady[random]);
+            //m_PlayersReady.RemoveAt(index);
+            Debug.Log("Player killer: " + player);
             EscogerKillerRpc(player);
-            detectarEnemigos();
+            StartCoroutine(detectarEnemigos());
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -400,7 +402,7 @@ namespace m17
         {
             if (id == OwnerClientId)
             {
-                GameManager.Instance.setKiller(this);
+                GameManager.Instance.setKiller(this.gameObject);
                 isKiller = true;
             }
         }
@@ -410,8 +412,10 @@ namespace m17
         {
             while (true)
             {
-                enemigos = Physics.OverlapSphere(this.transform.position, 5.0f);
-                GameManager.Instance.ActivarBotonKill();
+                enemigos = Physics.OverlapSphere(this.transform.position, 5.0f, layerMask);
+                Debug.Log("ENEMIGOS:"+enemigos.ToString());
+                if (enemigos.Length> 0) 
+                    GameManager.Instance.ActivarBotonKill();
                 yield return new WaitForSeconds(2f);
             }
         }
@@ -419,8 +423,20 @@ namespace m17
         public IEnumerator ChangeSceneGame()
         {
             yield return new WaitForSeconds(2f);
+            NetworkManager.Singleton.SceneManager.OnLoadComplete += OnSceneLoaded;
             NetworkManager.Singleton.SceneManager.LoadScene("Mapa", UnityEngine.SceneManagement.LoadSceneMode.Single);
+            //RandomKillerRpc();
 
+        }
+
+        private void OnSceneLoaded(ulong clientId, string sceneName, LoadSceneMode loadSceneMode)
+        {
+            if (sceneName == "Mapa" && IsServer)
+            {
+                RandomKillerRpc();
+            }
+
+            NetworkManager.Singleton.SceneManager.OnLoadComplete -= OnSceneLoaded;
         }
 
         private void ComprovarCanviEscena(ulong[] players)

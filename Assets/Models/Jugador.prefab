@@ -403,6 +403,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   _Camera: {fileID: 3551260300950042367}
+  layerMask:
+    serializedVersion: 2
+    m_Bits: 64
 --- !u!1 &8895992784815904416
 GameObject:
   m_ObjectHideFlags: 0

@@ -7,7 +7,7 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     [SerializeField] Button botonMatar;
-    PlayerBehaviour killer;
+    GameObject killer;
     [SerializeField] TextMeshProUGUI textoMuerte;
     private void Awake()
     {
@@ -15,9 +15,10 @@ public class GameManager : MonoBehaviour
             Instance = this;
     }
 
-    public void setKiller(PlayerBehaviour player)
+    public void setKiller(GameObject player)
     {
         killer = player;
+        Debug.Log(killer.name);
         botonMatar.gameObject.SetActive(true);
     }
 
