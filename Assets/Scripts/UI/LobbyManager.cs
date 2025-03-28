@@ -92,7 +92,21 @@ public class LobbyManager : MonoBehaviour
     {
         if (!this.m_PlayersReady.Contains(id))
             this.m_PlayersReady.Add(id);
+
+        ComprovarCanviEscena();
     }
 
+    public void NotReady(ulong id)
+    {
+        if (this.m_PlayersReady.Contains(id))
+            this.m_PlayersReady.Remove(id);
+    }
 
+    private void ComprovarCanviEscena()
+    {
+         if (m_PlayersReady.Count >= 2)
+        {
+            player.GetComponent<PlayerBehaviour>().CanviarEscena();
+        }
+    }
 }

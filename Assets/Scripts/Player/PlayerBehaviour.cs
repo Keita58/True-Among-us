@@ -353,21 +353,16 @@ namespace m17
         [Rpc(SendTo.Server)]
         private void TreureReadyPlayerRpc()
         {
-            //if (this.m_PlayersReady.Contains(OwnerClientId)) 
-            //    this.m_PlayersReady.Remove(OwnerClientId);
-
-            ComprovarCanviEscena();
+            LobbyManager.Instance.NotReady(OwnerClientId);
         }
 
         [Rpc(SendTo.Server)]
         private void RandomKillerRpc()
         {
-            //int random = UnityEngine.Random.Range(0, m_PlayersReady.Count);
-            //ulong player = m_PlayersReady[random];
-            //int index=m_PlayersReady.IndexOf(m_PlayersReady[random]);
-            //m_PlayersReady.RemoveAt(index);
-            //Debug.Log("Player killer: " + player);
-            //EscogerKillerRpc(player);
+            int random = UnityEngine.Random.Range(0, NetworkManager.Singleton.ConnectedClientsIds.Count);
+            ulong player = NetworkManager.Singleton.ConnectedClientsIds[random];
+            Debug.Log("Player killer: " + player);
+            EscogerKillerRpc(player);
             StartCoroutine(detectarEnemigos());
         }
 
@@ -377,6 +372,8 @@ namespace m17
             if (id == OwnerClientId)
             {
                 GameManager.Instance.setKiller(this.gameObject);
+                this.gameObject.layer = 7;
+
                 isKiller = true;
             }
         }
@@ -387,9 +384,19 @@ namespace m17
             while (true)
             {
                 enemigos = Physics.OverlapSphere(this.transform.position, 5.0f, layerMask);
+                foreach (Collider collider in enemigos)
+                {
+                    Debug.Log(collider.gameObject.name);
+                }
                 Debug.Log("ENEMIGOS:"+enemigos.ToString());
-                if (enemigos.Length> 0) 
-                    GameManager.Instance.ActivarBotonKill();
+                if (enemigos.Length > 0)
+                {
+                    GameManager.Instance.ToggleBotonKill(true);
+                }
+                else
+                {
+                    GameManager.Instance.ToggleBotonKill(false);
+                }
                 yield return new WaitForSeconds(2f);
             }
         }
@@ -399,7 +406,6 @@ namespace m17
             yield return new WaitForSeconds(2f);
             NetworkManager.Singleton.SceneManager.OnLoadComplete += OnSceneLoaded;
             NetworkManager.Singleton.SceneManager.LoadScene("Mapa", UnityEngine.SceneManagement.LoadSceneMode.Single);
-            //RandomKillerRpc();
 
         }
 
@@ -413,28 +419,23 @@ namespace m17
             NetworkManager.Singleton.SceneManager.OnLoadComplete -= OnSceneLoaded;
         }
 
-        private void ComprovarCanviEscena()
+        public void CanviarEscena()
         {
             //Debug.Log($"NetworkManager: {NetworkManager.Singleton.ConnectedClientsList.Count} PlayersReady: {m_PlayersReady.Count}");
-            //if (NetworkManager.Singleton.ConnectedClientsList.Count >= 2 && NetworkManager.Singleton.ConnectedClientsList.Count == m_PlayersReady.Count)
-            //{
-            //    StartCoroutine(ChangeSceneGame());
-            //}
+            StartCoroutine(ChangeSceneGame());
+          
         }
 
-        [Rpc(SendTo.Server)]
-        public void MatarEnemigoRpc(ulong id)
-        {
-            //ulong[] players = new ulong[m_PlayersReady.Count];
-            //for (int i = 0; i < m_PlayersReady.Count; i++)
-            //{
-            //    if (OwnerClientId == id)
-            //    {
-            //        GameManager.Instance.ActivarTextoMuerte();
-            //        break;
-            //    }
-            //}
+        public void MatarEnemigo(ulong id) =>MatarEnemigoRpc(id);
 
+        [Rpc(SendTo.Server)]
+        private void MatarEnemigoRpc(ulong id)
+        {
+            if (OwnerClientId == id)
+            {
+                GameManager.Instance.Matar();
+
+            }
         }
     }
 }

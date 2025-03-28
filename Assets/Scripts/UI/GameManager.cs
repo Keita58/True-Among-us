@@ -22,9 +22,16 @@ public class GameManager : MonoBehaviour
         botonMatar.gameObject.SetActive(true);
     }
 
-    public void ActivarBotonKill()
+    public void ToggleBotonKill(bool isInteractable)
     {
-        botonMatar.GetComponent<Button>().interactable = true;
+        if (isInteractable)
+        {
+            botonMatar.GetComponent<Button>().interactable = true;
+        }
+        else
+        {
+            botonMatar.GetComponent<Button>().interactable = false;
+        }
     }
 
     public void ActivarTextoMuerte()
@@ -39,7 +46,7 @@ public class GameManager : MonoBehaviour
         {
             Collider enemigo = killer.GetComponent<PlayerBehaviour>().enemigos[0];
             enemigo.TryGetComponent(out PlayerBehaviour muelto);
-            killer.GetComponent<PlayerBehaviour>().MatarEnemigoRpc(muelto.OwnerClientId);
+            killer.GetComponent<PlayerBehaviour>().MatarEnemigo(muelto.OwnerClientId);
         }
     }
 }
