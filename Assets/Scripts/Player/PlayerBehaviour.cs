@@ -29,7 +29,7 @@ namespace m17
         bool isKiller=false;
 
         //per a saber quins clients estàn preparats.
-        NetworkList<ulong> m_PlayersReady = new NetworkList<ulong>();
+        //per a fer la llista privada.
         [SerializeField] public Collider[] enemigos { get; private set; }
 
         Vector2 _LookRotation = Vector2.zero;
@@ -102,16 +102,6 @@ namespace m17
             {
                 GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = newName.ToString();
             };
-
-            m_PlayersReady.OnListChanged += (NetworkListEvent<ulong> changeEvent) =>
-            {
-                ulong[] players = new ulong[m_PlayersReady.Count];
-                for (int i = 0; i<m_PlayersReady.Count; i++)
-                {
-                    players[i]=m_PlayersReady[i];
-                }
-                ComprovarCanviEscena(players);
-            };
             
             GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = nick.Value.ToString();
 
@@ -178,12 +168,12 @@ namespace m17
             MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value, Input.mousePositionDelta);
             
 
-            Debug.Log("Clients: " + NetworkManager.Singleton.ConnectedClientsList.Count);
-            foreach (ulong client in m_PlayersReady)
-            {
-                Debug.Log("ClientReady:"+client);
-            }
-            Debug.Log("Clients ready: " + m_PlayersReady.Count);
+            ////Debug.Log("Clients: " + NetworkManager.Singleton.ConnectedClientsList.Count);
+            //foreach (ulong client in m_PlayersReady)
+            //{
+            //    Debug.Log("ClientReady:"+client);
+            //}
+            //Debug.Log("Clients ready: " + m_PlayersReady.Count);
 
             if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("") && SceneManager.GetActiveScene().name.Equals("Lobby")){
                 LobbyManager.Instance.ActivarBotonReady();
@@ -202,7 +192,7 @@ namespace m17
             _LookRotation.y = Mathf.Clamp(_LookRotation.y, -20, 60);
 
             m_Rigidbody.MoveRotation(Quaternion.Euler(0, _LookRotation.x, 0));
-            Debug.Log($"{NetworkBehaviourId} -> " + lookInput);
+            //Debug.Log($"{NetworkBehaviourId} -> " + lookInput);
         }
 
         //De nou, nom�s data i tipus base com a par�metres.
@@ -252,7 +242,7 @@ namespace m17
             _LookRotation.x += lookInput.x;
 
             m_Rigidbody.MoveRotation(Quaternion.Euler(0, _LookRotation.x, 0));
-            Debug.Log($"{OwnerClientId} -> " + lookInput);
+            //Debug.Log($"{OwnerClientId} -> " + lookInput);
 
             m_Rigidbody.linearVelocity = velocity;
         }
@@ -289,15 +279,17 @@ namespace m17
         }
 
         [Rpc(SendTo.Server)]
-        public void RequestNameChangeRpc(string nom)
+        private void RequestNameChangeRpc(string nom)
         {
             nick.Value = nom;
             playerNames[OwnerClientId] = nom;
             UpdateNicknameClientRpc(OwnerClientId, nom);
         }
 
+        public void RequestNameChange(string nom)=>RequestNameChangeRpc(nom);
+
         [ClientRpc]
-        public void UpdateNicknameClientRpc(ulong clientId, string nom, ClientRpcParams rpcParams = default)
+        private void UpdateNicknameClientRpc(ulong clientId, string nom, ClientRpcParams rpcParams = default)
         {
             foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
             {
@@ -310,7 +302,7 @@ namespace m17
         }
 
         [ClientRpc]
-        public void UpdatecolorClientRpc(ulong clientId, Color color, ClientRpcParams rpcParams = default)
+        private void UpdatecolorClientRpc(ulong clientId, Color color, ClientRpcParams rpcParams = default)
         {
             foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
             {
@@ -323,11 +315,8 @@ namespace m17
 
         }
 
-
-        [Rpc(SendTo.ClientsAndHost)]
-        public void CanviColorRpc(Color color)
+        public void CanviColor()
         {
-            //GetComponent<MeshRenderer>().material.color = color;
             List<Color> aux = new List<Color>();
             foreach (Color c in colors)
             {
@@ -337,63 +326,48 @@ namespace m17
         }
 
         [Rpc(SendTo.Server)]
-        public void AfegirColorLlistRpc(Color color)
+        private void AfegirColorLlistRpc(Color color)
         {
             if (!colors.Contains(color))
             {
                 selfColor.Value = color;
                 playerColors[OwnerClientId] = color;
                 UpdatecolorClientRpc(OwnerClientId, color);
-                CanviColorRpc(color);
+                CanviColor();
             }
         }
+
+        public void AfegirColorLlist(Color color) => AfegirColorLlistRpc(color);
+
+        public void AfegirReadyPlayer()=>AfegirReadyPlayerRpc();
 
         [Rpc(SendTo.Server)]
-        public void AfegirReadyPlayerRpc()
+        private void AfegirReadyPlayerRpc()
         {
-            this.m_PlayersReady.Add(OwnerClientId);
-            readyRpc();
-           
+            LobbyManager.Instance.Ready(OwnerClientId);
         }
 
-        [Rpc(SendTo.ClientsAndHost)]
-        public void readyRpc()
-        {
-            ulong[] players = new ulong[m_PlayersReady.Count];
-            for (int i = 0; i < m_PlayersReady.Count; i++)
-            {
-                players[i] = m_PlayersReady[i];
-            }
-            ComprovarCanviEscena(players);
-        }
+        public void TreureReadyPlayer() => TreureReadyPlayerRpc();
 
-        [Rpc(SendTo.ClientsAndHost)]
-        public void notReadyRpc()
-        {
-            ulong[] players = new ulong[m_PlayersReady.Count];
-            for (int i = 0; i < m_PlayersReady.Count; i++)
-            {
-                players[i] = m_PlayersReady[i];
-            }
-            ComprovarCanviEscena(players);
-        }
 
         [Rpc(SendTo.Server)]
-        public void TreureReadyPlayerRpc()
+        private void TreureReadyPlayerRpc()
         {
-            this.m_PlayersReady.Add(OwnerClientId);
-            notReadyRpc();
+            //if (this.m_PlayersReady.Contains(OwnerClientId)) 
+            //    this.m_PlayersReady.Remove(OwnerClientId);
+
+            ComprovarCanviEscena();
         }
 
         [Rpc(SendTo.Server)]
         private void RandomKillerRpc()
         {
-            int random = UnityEngine.Random.Range(0, m_PlayersReady.Count);
-            ulong player = m_PlayersReady[random];
+            //int random = UnityEngine.Random.Range(0, m_PlayersReady.Count);
+            //ulong player = m_PlayersReady[random];
             //int index=m_PlayersReady.IndexOf(m_PlayersReady[random]);
             //m_PlayersReady.RemoveAt(index);
-            Debug.Log("Player killer: " + player);
-            EscogerKillerRpc(player);
+            //Debug.Log("Player killer: " + player);
+            //EscogerKillerRpc(player);
             StartCoroutine(detectarEnemigos());
         }
 
@@ -439,27 +413,27 @@ namespace m17
             NetworkManager.Singleton.SceneManager.OnLoadComplete -= OnSceneLoaded;
         }
 
-        private void ComprovarCanviEscena(ulong[] players)
+        private void ComprovarCanviEscena()
         {
-            Debug.Log(NetworkManager.Singleton.ConnectedClientsList.Count);
-            if (NetworkManager.Singleton.ConnectedClientsList.Count >= 2 && NetworkManager.Singleton.ConnectedClientsList.Count == players.Length)
-            {
-                StartCoroutine(ChangeSceneGame());
-            }
+            //Debug.Log($"NetworkManager: {NetworkManager.Singleton.ConnectedClientsList.Count} PlayersReady: {m_PlayersReady.Count}");
+            //if (NetworkManager.Singleton.ConnectedClientsList.Count >= 2 && NetworkManager.Singleton.ConnectedClientsList.Count == m_PlayersReady.Count)
+            //{
+            //    StartCoroutine(ChangeSceneGame());
+            //}
         }
 
         [Rpc(SendTo.Server)]
         public void MatarEnemigoRpc(ulong id)
         {
-            ulong[] players = new ulong[m_PlayersReady.Count];
-            for (int i = 0; i < m_PlayersReady.Count; i++)
-            {
-                if (OwnerClientId == id)
-                {
-                    GameManager.Instance.ActivarTextoMuerte();
-                    break;
-                }
-            }
+            //ulong[] players = new ulong[m_PlayersReady.Count];
+            //for (int i = 0; i < m_PlayersReady.Count; i++)
+            //{
+            //    if (OwnerClientId == id)
+            //    {
+            //        GameManager.Instance.ActivarTextoMuerte();
+            //        break;
+            //    }
+            //}
 
         }
     }

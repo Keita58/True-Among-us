@@ -14,6 +14,7 @@ public class LobbyManager : MonoBehaviour
     private GameObject player;
     [SerializeField] GameObject ButtonsRoot;
     [SerializeField] GameObject ButtonsReadyRoot;
+    List<ulong> m_PlayersReady = new List<ulong>();
 
     public static LobbyManager Instance { get; private set; }
     private void Awake()
@@ -26,7 +27,7 @@ public class LobbyManager : MonoBehaviour
     public void SetNom()
     {
         Debug.Log("lobby");
-        player.GetComponent<PlayerBehaviour>().RequestNameChangeRpc(_Nom.text);
+        player.GetComponent<PlayerBehaviour>().RequestNameChange(_Nom.text);
         _Nom.gameObject.SetActive(false);
         _Desc.gameObject.SetActive(false);
         _Boto.gameObject.SetActive(false);
@@ -41,7 +42,7 @@ public class LobbyManager : MonoBehaviour
 
     public void setColor(Color color)
     {
-        player.GetComponent<PlayerBehaviour>().AfegirColorLlistRpc(color);
+        player.GetComponent<PlayerBehaviour>().AfegirColorLlist(color);
         desactivarTotsColors();
     }
    
@@ -78,12 +79,20 @@ public class LobbyManager : MonoBehaviour
 
     public void afegirLlistaReady()
     {
-        player.GetComponent<PlayerBehaviour>().AfegirReadyPlayerRpc();
+        player.GetComponent<PlayerBehaviour>().AfegirReadyPlayer();
 
     } 
     public void treureLlistaReady()
     {
-        player.GetComponent<PlayerBehaviour>().TreureReadyPlayerRpc();
+        player.GetComponent<PlayerBehaviour>().TreureReadyPlayer();
 
     }
+
+    public void Ready(ulong id)
+    {
+        if (!this.m_PlayersReady.Contains(id))
+            this.m_PlayersReady.Add(id);
+    }
+
+
 }
