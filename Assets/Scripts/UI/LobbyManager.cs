@@ -1,6 +1,8 @@
 ﻿using m17;
 using NUnit.Framework;
+using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -14,6 +16,7 @@ public class LobbyManager : MonoBehaviour
     private GameObject player;
     [SerializeField] GameObject ButtonsRoot;
     [SerializeField] GameObject ButtonsReadyRoot;
+    [SerializeField] TextMeshProUGUI timer;
     List<ulong> m_PlayersReady = new List<ulong>();
 
     public static LobbyManager Instance { get; private set; }
@@ -38,6 +41,12 @@ public class LobbyManager : MonoBehaviour
     public void SetPlayer(GameObject player)
     {
         this.player = player;
+        this.player.GetComponent<PlayerBehaviour>().onStopTimer += StopTimer;
+    }
+
+    private void StopTimer()
+    {
+        timer.text = "";
     }
 
     public void setColor(Color color)
@@ -100,13 +109,30 @@ public class LobbyManager : MonoBehaviour
     {
         if (this.m_PlayersReady.Contains(id))
             this.m_PlayersReady.Remove(id);
+
+        ComprovarCanviEscena();
     }
 
     private void ComprovarCanviEscena()
     {
          if (m_PlayersReady.Count >= 2)
         {
-            player.GetComponent<PlayerBehaviour>().CanviarEscena();
+            player.GetComponent<PlayerBehaviour>().CanviarEscena(true);
+        }
+        else
+        {
+            player.GetComponent<PlayerBehaviour>().CanviarEscena(false);
+        }
+    }
+
+    public IEnumerator ActivarTimer()
+    {
+        int i = 10;
+        while (i > 0)
+        {
+            timer.text = i.ToString();
+            i--;
+            yield return new WaitForSeconds(1f);
         }
     }
 }

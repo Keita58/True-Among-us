@@ -1,4 +1,5 @@
 using m17;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,7 +19,7 @@ public class GameManager : MonoBehaviour
     public void setKiller(GameObject player)
     {
         killer = player;
-        Debug.Log(killer.name);
+        Debug.Log("KILLER"+killer.GetComponent<PlayerBehaviour>().OwnerClientId);
         botonMatar.gameObject.SetActive(true);
     }
 
@@ -42,11 +43,12 @@ public class GameManager : MonoBehaviour
     public void Matar()
     {
         
-        if (killer.GetComponent<PlayerBehaviour>().enemigos != null)
+        if (killer.GetComponent<PlayerBehaviour>().enemigos.Length>0)
         {
             Collider enemigo = killer.GetComponent<PlayerBehaviour>().enemigos[0];
             enemigo.TryGetComponent(out PlayerBehaviour muelto);
-            killer.GetComponent<PlayerBehaviour>().MatarEnemigo(muelto.OwnerClientId);
+            Debug.Log(muelto.OwnerClientId);
+            muelto.GetComponent<PlayerBehaviour>().MatarEnemigo(muelto.OwnerClientId);
         }
     }
 }

@@ -1,12 +1,15 @@
+using JetBrains.Annotations;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.SceneManagement;
+using static Unity.Burst.Intrinsics.X86;
 
 namespace m17
 {
@@ -23,7 +26,7 @@ namespace m17
 
         Rigidbody m_Rigidbody;
         [SerializeField] GameObject _Camera;
-        NetworkList<Color> colors = new NetworkList<Color>();
+        List<Color> colors = new List<Color>();
         NetworkVariable<Color> selfColor= new NetworkVariable<Color>();
         private static Dictionary<ulong, Color> playerColors = new();
         bool isKiller=false;
@@ -34,6 +37,7 @@ namespace m17
 
         Vector2 _LookRotation = Vector2.zero;
         [SerializeField] LayerMask layerMask;
+        public event Action onStopTimer;
 
         // No es recomana fer servir perqu� estem en el m�n de la xarxa
         // per� podem per initialitzar components i variables per a totes les inst�ncies
@@ -82,21 +86,17 @@ namespace m17
             Camera.main.transform.position = _Camera.transform.position;
             Camera.main.transform.parent = _Camera.transform;
 
-            //Si no la podem updatejar, com ho fem aleshores?
-            //Li demanem al servidor que ho faci via un RPC
-            //Per a mostrar el resultat al nostre client, utilitzarem
-            //els callback de modificaci�
-            m_Speed.OnValueChanged += CallbackModificacio;
 
-            colors.OnListChanged += (NetworkListEvent<Color> changeEvent) =>
-            {
-                List<Color> aux = new List<Color>();
-                foreach (Color color in colors)
-                {
-                    aux.Add(color);
-                }
-                LobbyManager.Instance.desactivarColorsJaEscollits(aux);
-            };
+            //colors.OnListChanged += (NetworkListEvent<Color> changeEvent) =>
+            //{
+            //    List<Color> aux = new List<Color>();
+            //    foreach (Color color in colors)
+            //    {
+            //        aux.Add(color);
+            //    }
+            //    DesactivarColorsRpc(aux);
+
+            //};
 
             nick.OnValueChanged += (oldName, newName) =>
             {
@@ -122,13 +122,6 @@ namespace m17
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
-            m_Speed.OnValueChanged -= CallbackModificacio;
-        }
-
-        //Sempre tindran aquest format amb oldValue i newValue
-        private void CallbackModificacio(float oldValue, float newValue)
-        {
-            Debug.Log($"{OwnerClientId} => M'han modificat la velocitat i ara �s {newValue} en comptes de {oldValue}");
         }
 
         void Update()
@@ -138,19 +131,6 @@ namespace m17
             {
                 return;
             }
-
-            //RPC a servidor
-            //Demanem al servidor que modifiqui la variable. Perqu� nosaltres no en som els propietaris
-            if (Input.GetKeyDown(KeyCode.Space))
-                ChangeSpeedRpc(UnityEngine.Random.Range(1f, 5f), NetworkObjectId);
-
-            //RPC a clients
-            //Com a servidor, enviem un missatge als nostres clients.
-            //Si es vol, es pot passar com a par�metre els ClientRpcParams, del qual al seu send
-            //es poden posar les ID de client que volem que rebin el missatge.
-            //Alerta, aquest codi nom�s el pot invocar el servidor i far� que s'executi a tots els clients
-            if (Input.GetKeyDown(KeyCode.M))
-                SendClientMessageClientRpc("Aix� �s un missatge pels clients");
 
             //moviment a f�sica
             Vector3 movement = Vector3.zero;
@@ -167,73 +147,13 @@ namespace m17
             //Qui far� els moviments ser� el servidor, alleugerim i nom�s canvis quan hi hagi input
             MoveCharacterPhysicsServerRpc(movement.normalized * m_Speed.Value, Input.mousePositionDelta);
             
-
-            ////Debug.Log("Clients: " + NetworkManager.Singleton.ConnectedClientsList.Count);
-            //foreach (ulong client in m_PlayersReady)
-            //{
-            //    Debug.Log("ClientReady:"+client);
-            //}
-            //Debug.Log("Clients ready: " + m_PlayersReady.Count);
-
             if (!GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text.Equals("") && SceneManager.GetActiveScene().name.Equals("Lobby")){
                 LobbyManager.Instance.ActivarBotonReady();
             }
         }
-
-        //No funciona pel mousePosition!!!
-        [Rpc(SendTo.Server)]
-        private void MovimentCameraRpc(Vector2 lookInput)
-        {
-            Vector2 _LookRotation = Vector2.zero;
-
-            _LookRotation.x += lookInput.x;
-            _LookRotation.y += -1 * lookInput.y;
-
-            _LookRotation.y = Mathf.Clamp(_LookRotation.y, -20, 60);
-
-            m_Rigidbody.MoveRotation(Quaternion.Euler(0, _LookRotation.x, 0));
-            //Debug.Log($"{NetworkBehaviourId} -> " + lookInput);
-        }
-
         //De nou, nom�s data i tipus base com a par�metres.
         //hem afegit el segon par�metre per a saber qui ens d�na la comanda (no es necessari per a aquest exemple, per� potser us �s �til)
-        [Rpc(SendTo.Server)]
-        private void ChangeSpeedRpc(float speed, ulong sourceNetworkObjectId)
-        {
-            //Ens assegurem com a servidor que la velocitat que ens demanen �s v�lida (no negativa en aquest cas)
-            m_Speed.Value = Mathf.Abs(speed);
-            Debug.Log($"{OwnerClientId} => El client {sourceNetworkObjectId} vol una nova velocitat {m_Speed.Value}");
-
-            //Aquesta resposta nom�s la rebr� el client amb la id inicial
-            //Client RPC target a nom�s les ID indicades
-            SendClientMessageClientRpc("Aix� �s un missatge pel client 1" + sourceNetworkObjectId,
-                        new ClientRpcParams
-                        {
-                            Send = new ClientRpcSendParams
-                            {
-                                TargetClientIds = new ulong[] { sourceNetworkObjectId }
-                            }
-                        }
-                    );
-        }
-
-        //Com veiem, controlar el moviment per servidor �s impracticable si hem de treballar amb deltaTime
-        //ja que no podem pretendre que la velocitat d'un update es propagui per la xarxa, on sempre tindrem
-        //un enrederiment.
-        //En aquest cas tenim dues opcions:
-        //  A) Podem dir-li als clients que puguin modificar les seves transform.
-        //      �s una soluci�, per� estem donant autoritat al client i aix� en xarxa no �s recomanable.
-        //
-        //  B) Ad�u deltaTime i treballem per f�siques amb valors a la velocitat o acceleracions
-        //      els c�lculs els seguiria fent el servidor via rpc (caldria el component NetworkRigidbody/2d)
-        //      seguirem tenint delay, per� ser� m�s acceptable.
-        //      Nota: Quan afegim el NetworkRigidbody, aquest passa a ser kinematic a no ser que estigui al servidor
-        //          caldria aleshores gestionar totes les col�lisions i d'altre al servidor.
-        [Rpc(SendTo.Server)]
-        private void MoveCharacterRpc(Vector3 newPosition)
-        {
-            transform.position = newPosition;
-        }
+ 
 
         //Aix� seria el moviment a f�sica
         [Rpc(SendTo.Server)]
@@ -247,20 +167,13 @@ namespace m17
             m_Rigidbody.linearVelocity = velocity;
         }
 
-        //Funci� que nom�s ser� executada als clients
-        // Noteu que aqu� es fa servir una nomenclatura diferent [ClientRpc] en comptes de [Rpc(SendTo.ClientsAndHost)].
-        // Aix� �s degut al fet que estem afegint els ClientRpcParams (per a enviar nom�s a alguns clients o a tothom).
-        // Aquest tipus d'�s d'arguments nom�s es pot fer amb [ClientRpc]. En qualsevol altre cas, utilitzeu la sintaxi
-        // que pertocaria [Rpc(SendTo.ClientsAndHost)].
-        [ClientRpc]
-        private void SendClientMessageClientRpc(string message, ClientRpcParams clientRpcParams = default)
-        {
-            Debug.Log($"El servidor ha enviat un missatge al client {OwnerClientId} => {message}");
-        }
-
         private void OnClientConnected(ulong clientId)
         {
             // Enviar el nombre del jugador al nuevo cliente
+            foreach (var entry in playerColors)
+            {
+                colors.Add(entry.Value);
+            }
             foreach (var entry in playerNames)
             {
                 UpdateNicknameClientRpc(entry.Key, entry.Value.ToString(), new ClientRpcParams
@@ -304,6 +217,10 @@ namespace m17
         [ClientRpc]
         private void UpdatecolorClientRpc(ulong clientId, Color color, ClientRpcParams rpcParams = default)
         {
+            foreach (var entry in playerColors)
+            {
+                colors.Add(entry.Value);
+            }
             foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
             {
                 if (player.OwnerClientId == clientId)
@@ -311,29 +228,28 @@ namespace m17
                     player.GetComponent<MeshRenderer>().material.color = color;
                     break;
                 }
+                DesactivarColorsRpc();
             }
-
         }
 
-        public void CanviColor()
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DesactivarColorsRpc()
         {
-            List<Color> aux = new List<Color>();
-            foreach (Color c in colors)
-            {
-                aux.Add(c);
-            }
-            LobbyManager.Instance.desactivarColorsJaEscollits(aux);
+            Debug.Log(colors.Count);
+            LobbyManager.Instance.desactivarColorsJaEscollits(colors);
+
         }
 
-        [Rpc(SendTo.Server)]
+
+        [Rpc(SendTo.Everyone)]
         private void AfegirColorLlistRpc(Color color)
         {
             if (!colors.Contains(color))
             {
+                colors.Add(color);
                 selfColor.Value = color;
                 playerColors[OwnerClientId] = color;
                 UpdatecolorClientRpc(OwnerClientId, color);
-                CanviColor();
             }
         }
 
@@ -360,24 +276,27 @@ namespace m17
         private void RandomKillerRpc()
         {
             int random = UnityEngine.Random.Range(0, NetworkManager.Singleton.ConnectedClientsIds.Count);
-            ulong player = NetworkManager.Singleton.ConnectedClientsIds[random];
+            ulong player = 1; //NetworkManager.Singleton.ConnectedClientsIds[random];
             Debug.Log("Player killer: " + player);
-            EscogerKillerRpc(player);
-            StartCoroutine(detectarEnemigos());
+            EscogerKillerClientRpc(player);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void EscogerKillerRpc(ulong id)
+        private void EscogerKillerClientRpc(ulong id)
         {
-            if (id == OwnerClientId)
+            foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
             {
-                GameManager.Instance.setKiller(this.gameObject);
-                this.gameObject.layer = 7;
-
-                isKiller = true;
+                if (player.OwnerClientId == id)
+                {
+                    Debug.Log("KILLER CLIENT :" + id);
+                    GameManager.Instance.setKiller(player.gameObject);
+                    player.gameObject.layer = 7;
+                    isKiller = true;
+                    StartCoroutine(player.detectarEnemigos());
+                    break;
+                }
             }
         }
-
 
         private IEnumerator detectarEnemigos()
         {
@@ -386,7 +305,7 @@ namespace m17
                 enemigos = Physics.OverlapSphere(this.transform.position, 5.0f, layerMask);
                 foreach (Collider collider in enemigos)
                 {
-                    Debug.Log(collider.gameObject.name);
+                    Debug.Log(collider.gameObject.name + collider.GetComponent<PlayerBehaviour>().OwnerClientId);
                 }
                 Debug.Log("ENEMIGOS:"+enemigos.ToString());
                 if (enemigos.Length > 0)
@@ -397,13 +316,13 @@ namespace m17
                 {
                     GameManager.Instance.ToggleBotonKill(false);
                 }
-                yield return new WaitForSeconds(2f);
+                yield return new WaitForSeconds(0.5f);
             }
         }
 
         public IEnumerator ChangeSceneGame()
         {
-            yield return new WaitForSeconds(2f);
+            yield return new WaitForSeconds(10f);
             NetworkManager.Singleton.SceneManager.OnLoadComplete += OnSceneLoaded;
             NetworkManager.Singleton.SceneManager.LoadScene("Mapa", UnityEngine.SceneManagement.LoadSceneMode.Single);
 
@@ -419,23 +338,39 @@ namespace m17
             NetworkManager.Singleton.SceneManager.OnLoadComplete -= OnSceneLoaded;
         }
 
-        public void CanviarEscena()
+        public void CanviarEscena(bool start) => CanviarEscenaRpc(start);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void CanviarEscenaRpc(bool start)
         {
-            //Debug.Log($"NetworkManager: {NetworkManager.Singleton.ConnectedClientsList.Count} PlayersReady: {m_PlayersReady.Count}");
-            StartCoroutine(ChangeSceneGame());
-          
+            if (start)
+            {
+                StartCoroutine(ChangeSceneGame());
+                StartCoroutine(LobbyManager.Instance.ActivarTimer());
+            }
+            else
+            {
+                onStopTimer?.Invoke();
+                StopAllCoroutines();
+            }
+
         }
+
 
         public void MatarEnemigo(ulong id) =>MatarEnemigoRpc(id);
 
-        [Rpc(SendTo.Server)]
+        [Rpc(SendTo.ClientsAndHost)]
         private void MatarEnemigoRpc(ulong id)
         {
-            if (OwnerClientId == id)
+            for (int i = 0; i < NetworkManager.Singleton.ConnectedClientsIds.Count; i++)
             {
-                GameManager.Instance.Matar();
-
+                if (NetworkManager.Singleton.ConnectedClientsIds[i] == id)
+                {
+                    Debug.Log("Activo: " + id);
+                    this.m_Rigidbody.isKinematic = true;
+                }
             }
         }
+
     }
 }
