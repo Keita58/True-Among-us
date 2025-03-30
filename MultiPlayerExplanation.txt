@@ -1,0 +1,13 @@
+Primer de tot, tenim un player que es un NetworkObject que té un NetworkBehaviour. Aquest és el nostre únic NetworkObject.
+
+A l'script de player, per a començar, el servidor s'encarrega de moure el jugador i la cámara amb les seves rotacions pertinents. 
+Quan el client escull el seu nom, primer li demana el server que li canviï on actualitza i seteja NetworkVariables i li canvia el nom al client cridant a una funció que només pot executar aquest últim. En aquesta funció el client es posa el nom que li passa el servidor.
+Això mateix succeeix amb els colors: el client li demana el servidor que li canviï el color i aquest seteja variables i, finalment, crida la funció que només pot executar el client on aquest úlitm es canvia el color ell mateix amb el color que li dona el servidor.
+A més, cada vegada que algú escull un color, hi ha una funció que només poden cridar els clients i els host on es desactiven ells mateixos els colors ja escollits per altres clients.
+
+Seguidament hi tenim els botons de ready. El funcionament d'aquests botons és de la següent manera: quan es clica al botó el LobbyManager (es monobehaviour), crida una funció que només pot executar el servidor que alhora crida una funció que afegeix a la llista de gent preparada del LobbyManager el jugador.
+D'aquesta manera, el lobbyManager del servidor té tots els jugadors que estan preparats. Quan hi ha dos o més jugadors preparats, el LobbyManager crida una funció que executa el servidor en la qual canvia d'escena per a tothom i, a més, crida una funció que només poden cridar els clients on s'inicia el compte enrere.
+Quan el compte enrere arriba a 0, el servidor canvia l'escena per a tots.
+Quan canviem d'escena, esperem que estigui carregada i quan ho està cridem una funció que només pot executar el servidor, en la qual escollim el killer d'entre tots els jugadors connectats. A continuació, cridem una corutina que espera 1 segon i crida una funció només de clients. Fem això perquè doni temps
+al GameManager de l'escena del joc a instanciar-se. Aquesta funció que crida la corutina seteja com a killer el jugador escollit: li diu al GameManager que ell és l'assassí, comença la corutina de detecció d'enemics, es posa la layer de killer...
+Finalment, quan es clica el botó de matar (només es pot clicar si hi ha algú a prop), el GameManager agafa el jugador que estigui més a prop i crida una funció que només poden executar els clients. En aquesta funció, el que ha mort activa el text de mort, es canvia la layer a mort i ell mateix es desactiva.
