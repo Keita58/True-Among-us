@@ -86,18 +86,6 @@ namespace m17
             Camera.main.transform.position = _Camera.transform.position;
             Camera.main.transform.parent = _Camera.transform;
 
-
-            //colors.OnListChanged += (NetworkListEvent<Color> changeEvent) =>
-            //{
-            //    List<Color> aux = new List<Color>();
-            //    foreach (Color color in colors)
-            //    {
-            //        aux.Add(color);
-            //    }
-            //    DesactivarColorsRpc(aux);
-
-            //};
-
             nick.OnValueChanged += (oldName, newName) =>
             {
                 GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = newName.ToString();
@@ -226,9 +214,9 @@ namespace m17
                 if (player.OwnerClientId == clientId)
                 {
                     player.GetComponent<MeshRenderer>().material.color = color;
+                    DesactivarColorsRpc();
                     break;
                 }
-                DesactivarColorsRpc();
             }
         }
 
@@ -241,16 +229,23 @@ namespace m17
         }
 
 
-        [Rpc(SendTo.Everyone)]
+        [Rpc(SendTo.Server)]
         private void AfegirColorLlistRpc(Color color)
         {
             if (!colors.Contains(color))
             {
                 colors.Add(color);
+                AfegirColorsRpc(color);
                 selfColor.Value = color;
                 playerColors[OwnerClientId] = color;
                 UpdatecolorClientRpc(OwnerClientId, color);
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AfegirColorsRpc(Color color)
+        {
+            colors.Add(color);
         }
 
         public void AfegirColorLlist(Color color) => AfegirColorLlistRpc(color);
@@ -272,15 +267,26 @@ namespace m17
             LobbyManager.Instance.NotReady(OwnerClientId);
         }
 
+
+        //Mètode que escull un killer random de tota la llista de clients connectats.
         [Rpc(SendTo.Server)]
         private void RandomKillerRpc()
         {
             int random = UnityEngine.Random.Range(0, NetworkManager.Singleton.ConnectedClientsIds.Count);
-            ulong player = 1; //NetworkManager.Singleton.ConnectedClientsIds[random];
+            ulong player = NetworkManager.Singleton.ConnectedClientsIds[random];
             Debug.Log("Player killer: " + player);
-            EscogerKillerClientRpc(player);
+            StartCoroutine(EscogerKiller(player));
         }
 
+        //para que de tiempo a que el GameManager se instancie y no pete.
+        private IEnumerator EscogerKiller(ulong killer)
+        {
+            yield return new WaitForSeconds(1);
+            EscogerKillerClientRpc(killer);
+
+        }
+
+        //Métode que escull el killer.
         [Rpc(SendTo.ClientsAndHost)]
         private void EscogerKillerClientRpc(ulong id)
         {
@@ -289,20 +295,25 @@ namespace m17
                 if (player.OwnerClientId == id)
                 {
                     Debug.Log("KILLER CLIENT :" + id);
-                    GameManager.Instance.setKiller(player.gameObject);
+                    if (player.IsOwner)
+                    {
+                        GameManager.Instance.setKiller(player.gameObject);
+                        StartCoroutine(player.detectarEnemigos());
+                    }
                     player.gameObject.layer = 7;
                     isKiller = true;
-                    StartCoroutine(player.detectarEnemigos());
                     break;
                 }
             }
         }
 
+
+        //Corutina que detecta els enemics i activa o desactiva el botó depenent de si troba algú.
         private IEnumerator detectarEnemigos()
         {
             while (true)
             {
-                enemigos = Physics.OverlapSphere(this.transform.position, 5.0f, layerMask);
+                enemigos = Physics.OverlapSphere(this.transform.position, 3.0f, layerMask);
                 foreach (Collider collider in enemigos)
                 {
                     Debug.Log(collider.gameObject.name + collider.GetComponent<PlayerBehaviour>().OwnerClientId);
@@ -320,6 +331,7 @@ namespace m17
             }
         }
 
+        //Mètode que canvia l'escena a la de joc per a tothom.
         public IEnumerator ChangeSceneGame()
         {
             yield return new WaitForSeconds(10f);
@@ -328,6 +340,8 @@ namespace m17
 
         }
 
+        
+        //Mètode que s'executa quan l'escena de joc ha carregat. Una vegada ha cargat l'escena, executem la funció que escull el killer.
         private void OnSceneLoaded(ulong clientId, string sceneName, LoadSceneMode loadSceneMode)
         {
             if (sceneName == "Mapa" && IsServer)
@@ -340,37 +354,65 @@ namespace m17
 
         public void CanviarEscena(bool start) => CanviarEscenaRpc(start);
 
-        [Rpc(SendTo.ClientsAndHost)]
+
+        //Mètode que segons el booleà canvia d'escena o no.
+        [Rpc(SendTo.Server)]
         public void CanviarEscenaRpc(bool start)
         {
             if (start)
             {
                 StartCoroutine(ChangeSceneGame());
-                StartCoroutine(LobbyManager.Instance.ActivarTimer());
+                ActivarTimerClientesRpc();
             }
             else
             {
-                onStopTimer?.Invoke();
-                StopAllCoroutines();
+                PararTimerClientRpc();
             }
 
+        }
+
+        //Mètode que atura el timer per a tots els clients.
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PararTimerClientRpc()
+        {
+            onStopTimer?.Invoke();
+            StopAllCoroutines();
+        }
+
+
+        //Mètode que activa el timer per a tots els clients
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ActivarTimerClientesRpc()
+        {
+            StartCoroutine(LobbyManager.Instance.ActivarTimer());
         }
 
 
         public void MatarEnemigo(ulong id) =>MatarEnemigoRpc(id);
 
+
+        //Recorrem tots els clients i mirem si l'id és igual al del mort. Si ho és, només l'owner, és a dir, ell, activarà el seu text de mort i desapareixerà. 
         [Rpc(SendTo.ClientsAndHost)]
         private void MatarEnemigoRpc(ulong id)
         {
-            for (int i = 0; i < NetworkManager.Singleton.ConnectedClientsIds.Count; i++)
+            foreach (var player in FindObjectsByType<PlayerBehaviour>(FindObjectsSortMode.None))
             {
-                if (NetworkManager.Singleton.ConnectedClientsIds[i] == id)
+                if (player.OwnerClientId == id)
                 {
-                    Debug.Log("Activo: " + id);
-                    this.m_Rigidbody.isKinematic = true;
+                    if (player.IsOwner)
+                    {
+                        GameManager.Instance.ActivarTextoMuerte();
+                    }
+                    this.gameObject.layer = 8;
+                    GetComponentInChildren<Canvas>().GetComponentInChildren<TextMeshProUGUI>().text = "MUERTO";
+                    this.gameObject.SetActive(false);
+                    break;
                 }
             }
         }
+
+
+
 
     }
 }
